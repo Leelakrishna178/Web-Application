@@ -1,49 +1,3 @@
-# WebHostManager: A Comprehensive Client Data Management System
-
-## Project Overview
-
-WebHostManager is a sophisticated web application designed to streamline the management of client data for web hosting companies. The system provides a centralized platform for storing and managing essential client information, including website login credentials, expiry dates, domain management details, email access credentials, renewal charges, and more. By integrating powerful features such as user authentication, data encryption, and automated notifications, WebHostManager simplifies the process of managing client accounts while ensuring security and compliance.
-
-## Technologies Used
-[![My Skills](https://skillicons.dev/icons?i=js,react,nodejs,express,mysql)](https://skillicons.dev)
-### Frontend
-
-- **React**: A JavaScript library for building user interfaces.
-- **React Bootstrap**: A library for integrating Bootstrap with React for responsive and visually appealing UI components.
-- **CSS**: Styling for custom design elements and layout.
-
-### Backend
-
-- **Node.js**: A JavaScript runtime for building fast and scalable server-side applications.
-- **Express.js**: A web application framework for Node.js, used for building the RESTful API.
-- **bcrypt**: A library for hashing and salting passwords for secure storage.
-- **cors**: A middleware for enabling Cross-Origin Resource Sharing in web applications.
-- **mysql2**: A MySQL client for Node.js with support for Promises.
-
-### Database
-- MySQL (Hosted on Aiven): A relational database management system for storing and managing application data
-
-### Other Tools
-
-- **Postman**: An API client for testing and debugging API endpoints.
-- **Git**: Version control system for tracking changes in the source code during development.
-
-## Database Schema
-
-The following schema represents the database structure used in the WebHostManager project:
- 
-![Untitled](https://github.com/yashasvi211/web-host-manager/assets/111164122/0b304f70-d4bb-458e-a8cd-fc03a289ae5f)
-
-## Login Instructions
-	
-	To access the WebHostManager system, follow these steps:
-	
-	1. Navigate to the registration page.
-	2. Create a dummy employee account by filling out the registration form.
-	3. Use the registered credentials to log in to the system
-## How to Create Your Own Backend
-Setting Up the Project
-``` javascript
 import express, { json } from "express";
 import mysql from "mysql2";
 import cors from "cors";
@@ -54,7 +8,10 @@ app.use(json());
 app.use(cors());
 
 const db = mysql.createConnection({
-  // Your database connection details here
+  host: "localhost",
+  user: "root",
+  password: "root",
+  database: "project"
 });
 
 db.connect((err) => {
@@ -64,15 +21,15 @@ db.connect((err) => {
   }
   console.log("Connected to database");
 });
-```
-## Register Route with Password Hashing
 
-```javascript
+// Register route with password hashing
 app.post("/register", async (req, res) => {
   const { employee_name, username, password, position } = req.body;
 
   try {
-    const [rows] = await db.promise().query("SELECT * FROM employees WHERE username = ?", [username]);
+    const [rows] = await db
+      .promise()
+      .query("SELECT * FROM employees WHERE username = ?", [username]);
 
     if (rows.length > 0) {
       res.status(400).json({ error: "Username already exists" });
@@ -80,10 +37,12 @@ app.post("/register", async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const [result] = await db.promise().query(
-      "INSERT INTO employees (employee_name, username, password, position) VALUES (?, ?, ?, ?)",
-      [employee_name, username, hashedPassword, position]
-    );
+    const [result] = await db
+      .promise()
+      .query(
+        "INSERT INTO employees (employee_name, username, password, position) VALUES (?, ?, ?, ?)",
+        [employee_name, username, hashedPassword, position]
+      );
 
     res.status(201).json({
       message: "User registered successfully",
@@ -94,18 +53,17 @@ app.post("/register", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-```
 
-## Login Route with Password Verification
-
-```javascript
+// Login route with password hashing verification
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
   console.log(`Login attempt for username: ${username}`);
 
   try {
-    const [rows] = await db.promise().query("SELECT * FROM employees WHERE username = ?", [username]);
+    const [rows] = await db
+      .promise()
+      .query("SELECT * FROM employees WHERE username = ?", [username]);
 
     if (rows.length === 0) {
       console.log(`No employee found with username: ${username}`);
@@ -136,11 +94,8 @@ app.post("/login", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-```
 
-## Fetch Users Route
-
-```javascript
+// Fetch users route
 app.get("/users", async (req, res) => {
   try {
     const [results] = await db.promise().query(`
@@ -157,17 +112,23 @@ app.get("/users", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-```
-## Fetch User Details Route
 
-```javascript
-app.get("/user/:id", async (req, res) => {
-  const userId = req.params.id;
+// Fetch individual user details
+app.get("/users/:userId", async (req, res) => {
+  const { userId } = req.params;
 
   try {
     const [results] = await db.promise().query(
       `
-      SELECT u.*, up.expiry_date, p.plan_name, s.*, i.*, pm.*, st.*, su.*
+      SELECT 
+        u.*,
+        up.user_plan_id, up.start_date, up.expiry_date, up.auto_renew,
+        p.plan_name, p.cpu_cores, p.ram_gb, p.storage_gb, p.bandwidth_gb, p.price_monthly,
+        s.server_id, s.server_name, s.ip_address, s.location, s.status,
+        i.invoice_id, i.amount, i.issue_date, i.due_date, i.status AS invoice_status,
+        pm.payment_method_id, pm.method_type, pm.details AS payment_details,
+        st.ticket_id, st.subject, st.description, st.status AS ticket_status, st.created_at, st.updated_at,
+        su.usage_id, su.cpu_usage_percent, su.ram_usage_percent, su.storage_usage_gb, su.bandwidth_usage_gb, su.timestamp AS usage_timestamp
       FROM Users u
       LEFT JOIN UserPlans up ON u.user_id = up.user_id
       LEFT JOIN Plans p ON up.plan_id = p.plan_id
@@ -187,20 +148,18 @@ app.get("/user/:id", async (req, res) => {
       return;
     }
 
-    console.log("User detail data being sent:", JSON.stringify(results, null, 2));
+    console.log(
+      "User detail data being sent:",
+      JSON.stringify(results, null, 2)
+    );
     res.json(results);
   } catch (err) {
     console.error("Error during fetch user details query:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
-```
 
-## Start the Server
-
-```javascript
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-```
